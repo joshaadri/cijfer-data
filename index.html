@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cijfer Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+/* RESET */
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Inter",sans-serif}
+
+/* DARK MODE */
+body{
+    background:#0f0f17;
+    color:#eee;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+/* LOGIN CONTAINER */
+#loginBox{
+    background:#1a1a24;
+    padding:40px;
+    width:100%;
+    max-width:380px;
+    border-radius:14px;
+    box-shadow:0 0 35px rgba(0,0,0,.4);
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+}
+
+#loginBox h1{
+    text-align:center;
+    font-size:2em;
+    letter-spacing:1px;
+}
+
+/* INPUTS */
+label{font-size:.9em;color:#aaa;}
+input{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:8px;
+    background:#2a2a36;
+    color:#eee;
+    font-size:1em;
+}
+input:focus{
+    outline:2px solid #5c8bff;
+}
+
+/* BUTTON */
+.btn{
+    width:100%;
+    padding:14px;
+    background:#5c8bff;
+    border:none;
+    border-radius:8px;
+    font-weight:600;
+    cursor:pointer;
+    color:white;
+    transition:.2s;
+}
+.btn:hover{background:#4b73d8}
+
+/* ERROR */
+#error{
+    display:none;
+    background:#d9534f;
+    padding:12px;
+    border-radius:6px;
+    text-align:center;
+    font-size:.9em;
+}
+
+/* MAIN APP LAYOUT */
+#app{
+    width:100%;
+    height:100%;
+    display:none;
+    grid-template-columns:240px auto;
+}
+
+/* SIDEBAR */
+#sidebar{
+    background:#14141c;
+    padding:25px;
+    display:flex;
+    flex-direction:column;
+    gap:25px;
+}
+
+#sideTitle{
+    font-size:1.6em;
+    font-weight:700;
+}
+
+nav{
+    display:flex;
+    flex-direction:column;
+    gap:15px;
+}
+
+nav button{
+    padding:12px;
+    border:none;
+    background:#1e1e28;
+    color:#ccc;
+    border-radius:8px;
+    text-align:left;
+    cursor:pointer;
+    transition:.2s;
+    font-size:1em;
+}
+nav button:hover{background:#2a2a36;color:white}
+nav button.active{background:#5c8bff;color:white}
+
+/* CONTENT */
+#content{
+    padding:35px;
+    overflow-y:auto;
+}
+
+.section{
+    display:none;
+    background:#1b1b25;
+    padding:30px;
+    border-radius:12px;
+    box-shadow:0 0 25px rgba(0,0,0,.3);
+}
+
+/* HEADINGS */
+.section h2{
+    margin-bottom:20px;
+    font-size:1.6em;
+}
+
+/* TABLE */
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:10px;
+}
+th{
+    background:#24242f;
+    padding:14px;
+    text-align:left;
+    color:#ccc;
+    font-size:.9em;
+}
+td{
+    padding:14px;
+    border-bottom:1px solid #2d2d37;
+}
+
+/* SCORE COLORS */
+.score{
+    padding:6px 12px;
+    border-radius:6px;
+    font-weight:600;
+    font-size:.95em;
+}
+.rood{background:#d9534f;color:white}
+.geel{background:#e2c14b;color:black}
+.groen{background:#5cb85c;color:white}
+
+/* GRAPH */
+canvas{width:100% !important;}
+
+/* GAME AREA */
+#pongCanvas{
+    background:black;
+    border-radius:8px;
+}
+
+iframe{
+    width:100%;
+    height:380px;
+    border:none;
+    border-radius:8px;
+    margin-top:20px;
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginBox">
+    <h1>Cijfer Dashboard</h1>
+
+    <div id="error">Onjuiste gegevens</div>
+
+    <div>
+        <label>Gebruikersnaam</label>
+        <input id="user" type="text">
+    </div>
+
+    <div>
+        <label>Wachtwoord</label>
+        <input id="pass" type="password">
+    </div>
+
+    <button class="btn" onclick="login()">Inloggen</button>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+    
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+        <div id="sideTitle">Dashboard</div>
+
+        <nav>
+            <button class="active" onclick="openTab('cijfers')">📘 Cijfers</button>
+            <button onclick="openTab('gem')">📊 Gemiddelde</button>
+            <button onclick="openTab('grafiek')">📈 Grafiek</button>
+            <button id="secretBtn" style="display:none;" onclick="openTab('games')">🎮 Games</button>
+        </nav>
+    </div>
+
+    <!-- CONTENT -->
+    <div id="content">
+
+        <!-- CIJFERS -->
+        <div class="section" id="cijfers" style="display:block;">
+            <h2>Alle cijfers</h2>
+            <table id="gradeTable">
+                <thead><tr><th>Vak</th><th>Datum</th><th>Cijfer</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- GEMIDDELDE -->
+        <div class="section" id="gem">
+            <h2>Gemiddelde per vak</h2>
+            <table id="avgTable">
+                <thead><tr><th>Vak</th><th>Gemiddelde</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- GRAFIEK -->
+        <div class="section" id="grafiek">
+            <h2>Gemiddelden grafiek</h2>
+            <canvas id="chart"></canvas>
+        </div>
+
+        <!-- GAMES -->
+        <div class="section" id="games">
+            <h2>Pong</h2>
+            <canvas id="pongCanvas" width="600" height="300"></canvas>
+
+            <h2 style="margin-top:25px;">Dino Game</h2>
+            <iframe src="https://chromedino.com"></iframe>
+        </div>
+
+    </div>
+</div>
+
+<script>
+/* LOGIN */
+const USER="josha", PASS="Joshasmc1234!";
+function login(){
+    if(user.value===USER && pass.value===PASS){
+        loginBox.style.display="none";
+        app.style.display="grid";
+        loadTables();
+        buildChart();
+    }else{
+        error.style.display="block";
+        setTimeout(()=>error.style.display="none",2000);
+    }
+}
+
+/* SECRET CODE */
+let buffer="", key="frikandelbroodje";
+document.addEventListener("keydown",e=>{
+    buffer+=e.key.toLowerCase();
+    buffer=buffer.slice(-key.length);
+    if(buffer.includes(key)){
+        secretBtn.style.display="block";
+    }
+});
+
+/* DATA */
+const cijfers={
+    "Duitse taal":[{datum:"7 nov",cijfer:10.0},{datum:"10 okt",cijfer:4.3},{datum:"29 sep",cijfer:8.3}],
+    "Muziek":[{datum:"4 nov",cijfer:7.8}],
+    "Franse taal":[{datum:"30 okt",cijfer:7.3},{datum:"21 okt",cijfer:7.4}],
+    "Engelse taal":[{datum:"22 okt",cijfer:7.0}],
+    "Economie":[{datum:"18 nov",cijfer:8.7},{datum:"21 okt",cijfer:5.7},{datum:"20 okt",cijfer:5.0}],
+    "Nederlandse taal":[{datum:"9 nov",cijfer:9.3},{datum:"21 okt",cijfer:6.6},{datum:"29 sep",cijfer:7.5}],
+    "Biologie":[{datum:"19 okt",cijfer:6.8}],
+    "Aardrijkskunde":[{datum:"14 okt",cijfer:6.5},{datum:"30 sep",cijfer:6.0}],
+    "Wiskunde":[{datum:"8 okt",cijfer:5.9}],
+    "Geschiedenis":[{datum:"7 okt",cijfer:6.9}],
+    "Nask":[{datum:"9 okt",cijfer:6.5},{datum:"9 okt",cijfer:6.8}]
+};
+
+function cls(s){return s<5.5?"rood":s<6.5?"geel":"groen";}
+
+/* LOAD TABLES */
+function loadTables(){
+    let g=document.querySelector("#gradeTable tbody");
+    g.innerHTML="";
+    for(const vak in cijfers){
+        cijfers[vak].forEach(e=>{
+            g.innerHTML+=`
+            <tr>
+                <td>${vak}</td>
+                <td>${e.datum}</td>
+                <td><span class="score ${cls(e.cijfer)}">${e.cijfer}</span></td>
+            </tr>`;
+        });
+    }
+
+    let a=document.querySelector("#avgTable tbody");
+    a.innerHTML="";
+    for(const vak in cijfers){
+        let arr=cijfers[vak];
+        let avg=(arr.reduce((x,y)=>x+y.cijfer,0)/arr.length).toFixed(1);
+        a.innerHTML+=`
+        <tr>
+            <td>${vak}</td>
+            <td><span class="score ${cls(avg)}">${avg}</span></td>
+        </tr>`;
+    }
+}
+
+/* NAVIGATION */
+function openTab(id){
+    document.querySelectorAll(".section").forEach(s=>s.style.display="none");
+    document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+    document.getElementById(id).style.display="block";
+    event.target.classList.add("active");
+}
+
+/* CHART */
+function buildChart(){
+    const ctx=document.getElementById("chart");
+    const labels=Object.keys(cijfers);
+    const data=labels.map(v=>{
+        let a=cijfers[v];
+        return (a.reduce((x,y)=>x+y.cijfer,0)/a.length).toFixed(1);
+    });
+
+    new Chart(ctx,{
+        type:"bar",
+        data:{
+            labels,
+            datasets:[{
+                label:"Gemiddelde",
+                data,
+                backgroundColor:"#5c8bff"
+            }]
+        },
+        options:{scales:{y:{beginAtZero:true,max:10}}}
+    });
+}
+
+/* PONG GAME */
+const canvas=document.getElementById("pongCanvas");
+const ctxp=canvas.getContext("2d");
+let pY=120, aiY=120, bX=300, bY=150, vX=4, vY=3;
+
+document.addEventListener("mousemove",e=>{
+    let rect=canvas.getBoundingClientRect();
+    pY=e.clientY-rect.top-40;
+});
+
+function pong(){
+    ctxp.fillStyle="black";
+    ctxp.fillRect(0,0,canvas.width,canvas.height);
+
+    ctxp.fillStyle="white";
+    ctxp.fillRect(10,pY,10,70);
+    ctxp.fillRect(canvas.width-20,aiY,10,70);
+
+    ctxp.beginPath();
+    ctxp.arc(bX,bY,7,0,Math.PI*2);
+    ctxp.fill();
+
+    bX+=vX; bY+=vY;
+
+    if(bY<7||bY>canvas.height-7)vY*=-1;
+
+    aiY+=(bY>aiY+35?2.4:-2.4);
+
+    if(bX<20 && bY>pY && bY<pY+70)vX*=-1;
+    if(bX>canvas.width-20 && bY>aiY && bY<aiY+70)vX*=-1;
+
+    if(bX<0||bX>canvas.width){bX=300;bY=150;vX*=-1;}
+
+    requestAnimationFrame(pong);
+}
+pong();
+</script>
+
+</body>
+</html>
